@@ -1,11 +1,16 @@
+use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use tiny_keccak::{Hasher, Sha3};
 
+// TODO: use anyhow for results ?
+pub type Error = Box<dyn std::error::Error + Send + Sync>;
+pub type Result<T> = std::result::Result<T, Error>;
+
+// TODO: create modules for Transaction, Block, Blockchain etc.
+
 // TODO: combine and hash transactions using merkle tree
 
-// TODO: implement nice formatter for Block
-#[derive(Debug)]
 struct Block {
     block_number: u64,
     timestamp: u64,
@@ -13,8 +18,24 @@ struct Block {
     previous_hash: String,
 }
 
+impl fmt::Debug for Block {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "\nBlock {{\n")?;
+        write!(f, "    block_number: {},\n", self.block_number)?;
+        write!(f, "    timestamp: {},\n", self.timestamp)?;
+        write!(f, "    hash: {},\n", self.hash)?;
+        write!(f, "    previous_hash: {},\n", self.previous_hash)?;
+        write!(f, "}}")
+    }
+}
+
 impl Block {
-    pub fn new(block_number: u64, previous_hash: String) -> Block {
+    pub fn create_genesis_block() -> Block {
+        let genesis_hash = format!("{:0>64}", "");
+        Block::new(0, &genesis_hash)
+    }
+
+    pub fn new(block_number: u64, previous_hash: &str) -> Block {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -23,12 +44,12 @@ impl Block {
         Block {
             block_number,
             timestamp,
-            hash: Block::calculate_hash(block_number, timestamp, previous_hash.clone()),
-            previous_hash,
+            hash: Block::calculate_hash(block_number, timestamp, previous_hash),
+            previous_hash: previous_hash.to_string(),
         }
     }
 
-    fn calculate_hash(block_number: u64, timestamp: u64, previous_hash: String) -> String {
+    fn calculate_hash(block_number: u64, timestamp: u64, previous_hash: &str) -> String {
         let mut hasher = Sha3::v256();
 
         let hash_body = format!("{}{}{}", block_number, timestamp, previous_hash);
@@ -41,9 +62,6 @@ impl Block {
         hasher.finalize(&mut output);
 
         let hex = hex::encode(output);
-
-        // println!("{:?}", output);
-        // println!("{:?}", hex);
 
         // 64 characters long because each byte is represented by
         // two hexadecimal characters
@@ -58,17 +76,42 @@ struct Blockchain {
 
 impl Blockchain {
     pub fn new() -> Blockchain {
-        let genesis_hash = format!("{:0>64}", "");
-        let genesis_block = Block::new(0, genesis_hash);
+        let genesis_block = Block::create_genesis_block();
 
-        println!("{:?}", genesis_block);
+        Blockchain {
+            blocks: vec![genesis_block],
+        }
+    }
 
-        Blockchain { blocks: vec![] }
+    pub fn add_block(&mut self) {
+        if let Some(last_block) = self.blocks.last() {
+            let new_block = Block::new(last_block.block_number + 1, &last_block.hash);
+            self.blocks.push(new_block)
+        }
+    }
+
+    pub fn validate_chain(&self) -> bool {
+        self.blocks.len() <= 1
+            || self.blocks.windows(2).all(|blocks| {
+                let prev_block = &blocks[0];
+                let block = &blocks[1];
+                let hash =
+                    Block::calculate_hash(block.block_number, block.timestamp, &prev_block.hash);
+
+                hash == block.hash
+            })
     }
 }
 
 fn main() {
-    let blockchain = Blockchain::new();
+    let mut blockchain = Blockchain::new();
+    blockchain.add_block();
+    blockchain.add_block();
+
+    let is_valid = blockchain.validate_chain();
+
+    println!("{}", is_valid);
+    // println!("{:?}", blockchain);
 
     // let block = Block::new("test");
     // let hash = Block::calculate_hash();
