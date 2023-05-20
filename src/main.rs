@@ -1,118 +1,180 @@
-use std::fmt;
+mod transaction;
+mod types;
+mod wallet;
+
+use bincode::serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use tiny_keccak::{Hasher, Sha3};
+// use transaction::Transaction;
+use wallet::Wallet;
 
 // TODO: use anyhow for results ?
-pub type Error = Box<dyn std::error::Error + Send + Sync>;
-pub type Result<T> = std::result::Result<T, Error>;
 
-// TODO: create modules for Transaction, Block, Blockchain etc.
+const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
 
-// TODO: combine and hash transactions using merkle tree
+/* -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
 
-struct Block {
-    block_number: u64,
-    timestamp: u64,
-    hash: String,
-    previous_hash: String,
+struct AccountState {
+    balance: u64,
+    // The nonce is the number of transactions sent from the account.
+    // Each time tx is send, a the nonce increases by one
+    nonce: u64,
+    //
+    // storage_root
+    // code_hash
 }
 
-impl fmt::Debug for Block {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\nBlock {{\n")?;
-        write!(f, "    block_number: {},\n", self.block_number)?;
-        write!(f, "    timestamp: {},\n", self.timestamp)?;
-        write!(f, "    hash: {},\n", self.hash)?;
-        write!(f, "    previous_hash: {},\n", self.previous_hash)?;
-        write!(f, "}}")
+impl AccountState {
+    fn new(balance: u64) -> Self {
+        Self { nonce: 0, balance }
     }
+}
+
+/* -- -- -- -- -- -- -- -- -- -- -- */
+
+struct WorldState {
+    accounts: HashMap<String, AccountState>,
+}
+
+impl WorldState {
+    fn new() -> Self {
+        let total_supply = 1000;
+        let genesis_account = AccountState::new(total_supply);
+
+        let mut accounts: HashMap<String, AccountState> = HashMap::new();
+
+        accounts.insert(ZERO_ADDRESS.to_string(), genesis_account);
+
+        WorldState { accounts }
+    }
+}
+
+/* -- -- -- -- -- -- -- -- -- -- -- */
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct BlockHeader {
+    parent_hash: String,
+    timestamp: u64,
+    // block nonce is used for mining
+    nonce: u64,
+    //
+    // state_root: String,
+    // transactions_root: String,
+}
+
+// TODO: how exactly hash block? need to hash transactions?
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Block {
+    header: BlockHeader,
+    // transactions: Vec<Transaction>,
 }
 
 impl Block {
-    pub fn create_genesis_block() -> Block {
-        let genesis_hash = format!("{:0>64}", "");
-        Block::new(0, &genesis_hash)
-    }
-
-    pub fn new(block_number: u64, previous_hash: &str) -> Block {
+    fn new() {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-
-        Block {
-            block_number,
-            timestamp,
-            hash: Block::calculate_hash(block_number, timestamp, previous_hash),
-            previous_hash: previous_hash.to_string(),
-        }
     }
 
-    fn calculate_hash(block_number: u64, timestamp: u64, previous_hash: &str) -> String {
-        let mut hasher = Sha3::v256();
-
-        let hash_body = format!("{}{}{}", block_number, timestamp, previous_hash);
-
-        hasher.update(hash_body.as_bytes());
-
-        // 256-bit (32 byte) hash
-        let mut output = [0u8; 32];
-
-        hasher.finalize(&mut output);
-
-        let hex = hex::encode(output);
-
-        // 64 characters long because each byte is represented by
-        // two hexadecimal characters
-        hex
-    }
+    fn create_genesis_block() {}
 }
 
-#[derive(Debug)]
-struct Blockchain {
-    blocks: Vec<Block>,
-}
+/* -- -- -- -- -- -- -- -- -- -- -- */
+
+struct Blockchain {}
 
 impl Blockchain {
-    pub fn new() -> Blockchain {
-        let genesis_block = Block::create_genesis_block();
-
-        Blockchain {
-            blocks: vec![genesis_block],
-        }
-    }
-
-    pub fn add_block(&mut self) {
-        if let Some(last_block) = self.blocks.last() {
-            let new_block = Block::new(last_block.block_number + 1, &last_block.hash);
-            self.blocks.push(new_block)
-        }
-    }
-
-    pub fn validate_chain(&self) -> bool {
-        self.blocks.len() <= 1
-            || self.blocks.windows(2).all(|blocks| {
-                let prev_block = &blocks[0];
-                let block = &blocks[1];
-                let hash =
-                    Block::calculate_hash(block.block_number, block.timestamp, &prev_block.hash);
-
-                hash == block.hash
-            })
+    fn new() -> Self {
+        Blockchain {}
     }
 }
 
+/* -- -- -- -- -- -- -- -- -- -- -- */
+
+// In summary, all miners are full nodes because they maintain a complete copy of the blockchain
+// and validate transactions. However, not all full nodes are miners because they might not
+// participate in the process of creating new blocks.
+struct MinerNode {}
+
+/* -- -- -- -- -- -- -- -- -- -- -- */
+
+// TODO: how exactly nodes store all the data on their machines?
+// do they use any internal databases or smth.
+
+struct Node {
+    blockchain: Blockchain,
+    world_state: WorldState,
+    //
+    // when node receives new block it will filter it's mempool form txs from that new block
+    // TODO: name is ok? maybe mempool?
+    // transaction_pool: Vec<Transaction>,
+    //
+    // storage_state
+    // network_interface
+    // consensus
+}
+
+impl Node {
+    // fn new() -> Self {
+    //     let world_state = WorldState::new();
+    //     let blockchain = Blockchain::new();
+
+    //     Node {
+    //         world_state,
+    //         blockchain,
+    //         transaction_pool: vec![],
+    //     }
+    // }
+
+    fn validate_tx() {
+        // checking that the transaction has a valid signature, the nonce is correct,
+        // and the sender has enough Ether to cover the gas costs
+    }
+
+    fn validate_block() {}
+
+    fn propagate_tx() {}
+
+    fn propagate_block() {}
+
+    fn execute_tx() {}
+}
+
+/* -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
+
+// ❗️ TODO: чтобы не погрязнуть в сложных темах, нужно максимально декомпозировать задачи и идти по порядку❗️
+
+// * Implementation plan *
+
+// Part 1. wallet and transaction
+// - ✅ create wallet: keypair, address
+// - ✅ create transaction. generate it's hash
+// - ✅ sign transaction
+
+// Part 2. network basics
+// - creating basic network
+// - peer discovery
+// -
+
+// Part 3. minig and blocks creation
+//
+
 fn main() {
-    let mut blockchain = Blockchain::new();
-    blockchain.add_block();
-    blockchain.add_block();
+    let alice_wallet = Wallet::new();
+    let bob_wallet = Wallet::new();
 
-    let is_valid = blockchain.validate_chain();
+    let alice_tx = alice_wallet.create_transaction(bob_wallet.address, 1000);
 
-    println!("{}", is_valid);
-    // println!("{:?}", blockchain);
+    println!("{:?}", alice_tx);
 
-    // let block = Block::new("test");
-    // let hash = Block::calculate_hash();
+    // let tx_1 = Transaction {
+    //     nonce: 0,
+    //     to: String::from("0x0001"),
+    // };
+
+    // [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 48, 120, 48, 48, 48, 49]
+    // let tx_bytes = serialize(&tx_1).unwrap();
 }
