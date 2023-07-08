@@ -1,133 +1,90 @@
+mod blockchain;
 mod transaction;
 mod types;
+mod utils;
 mod wallet;
+mod world_state;
 
-use bincode::serialize;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
-
-// use transaction::Transaction;
+use blockchain::Blockchain;
+use transaction::Transaction;
 use wallet::Wallet;
+use world_state::WorldState;
 
 // TODO: use anyhow for results ?
 
-const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
+/* = = = = = = = = = = = = = = = PLAN V2 = = = = = = = = = = = = = = = = =
+
+❗️TODO: нужно максимально декомпозировать задачи и идти по порядку от простого к сложному❗️
+
+(Part 1. single node)
+1. implement basic flow for a single node with simplified world state and transactions storage
+    - blockchain init (with genesis block)
+    - world state init (with 0-account)
+    - node init
+    - create wallet (very simple one, it will know nothing about world state)
+    - create transaction
+2. all the same but with merkle patricia tree for world state and transactions storage
+
+(Part 2. standalone node)
+    - have separated running node which should store all the data on disk via key-value DB like RocksDB
+    - have separated running wallet
+    - they should be able to communicate with each other via (http?)
+
+(Part 3. network of nodes)
+
+= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = */
+
+/*
+    Documentation Agenda
+
+    1. Document the Purpose of Each Component: Each file, function, class, or module should have a comment
+    at the top explaining what it does and how it fits into the larger project. For complex functions,
+    also consider including a brief explanation of the algorithm or logic used.
+
+    2. Explain Your Design Decisions: If you made a choice between different possible implementations, explain
+    why you chose the one you did. This can be very helpful for anyone reading the code later, including yourself.
+
+    3. Describe the Data: If your code relies on specific data structures, explain what they are and why you're
+    using them. This could be as simple as a comment explaining what each field in a struct is for, or it could
+    be a more complex explanation of how different data structures interact.
+
+    4. Explain Tricky Code: If there's a part of your code that's particularly complex or uses a non-obvious trick,
+    leave a comment explaining it. If you had trouble writing it, someone else will probably have trouble understanding it.
+
+    5. Comment on Protocol and Communication: In a decentralized system like Ethereum, it's important to document
+    the protocols and communication mechanisms between different components of the system. This includes
+    explaining any synchronization mechanisms, how data is transferred, how nodes join and leave the network, and so on.
+
+    6. Keep the Documentation Updated: This is perhaps the most challenging part. When you make changes to your code,
+    also update the corresponding comments and documentation. Outdated documentation can be more confusing than
+    no documentation at all.
+*/
 
 /* -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
-
-struct AccountState {
-    balance: u64,
-    // The nonce is the number of transactions sent from the account.
-    // Each time tx is send, a the nonce increases by one
-    nonce: u64,
-    //
-    // storage_root
-    // code_hash
-}
-
-impl AccountState {
-    fn new(balance: u64) -> Self {
-        Self { nonce: 0, balance }
-    }
-}
-
-/* -- -- -- -- -- -- -- -- -- -- -- */
-
-struct WorldState {
-    accounts: HashMap<String, AccountState>,
-}
-
-impl WorldState {
-    fn new() -> Self {
-        let total_supply = 1000;
-        let genesis_account = AccountState::new(total_supply);
-
-        let mut accounts: HashMap<String, AccountState> = HashMap::new();
-
-        accounts.insert(ZERO_ADDRESS.to_string(), genesis_account);
-
-        WorldState { accounts }
-    }
-}
-
-/* -- -- -- -- -- -- -- -- -- -- -- */
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct BlockHeader {
-    parent_hash: String,
-    timestamp: u64,
-    // block nonce is used for mining
-    nonce: u64,
-    //
-    // state_root: String,
-    // transactions_root: String,
-}
-
-// TODO: how exactly hash block? need to hash transactions?
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct Block {
-    header: BlockHeader,
-    // transactions: Vec<Transaction>,
-}
-
-impl Block {
-    fn new() {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-    }
-
-    fn create_genesis_block() {}
-}
-
-/* -- -- -- -- -- -- -- -- -- -- -- */
-
-struct Blockchain {}
-
-impl Blockchain {
-    fn new() -> Self {
-        Blockchain {}
-    }
-}
-
-/* -- -- -- -- -- -- -- -- -- -- -- */
 
 // In summary, all miners are full nodes because they maintain a complete copy of the blockchain
 // and validate transactions. However, not all full nodes are miners because they might not
 // participate in the process of creating new blocks.
-struct MinerNode {}
+// struct MinerNode {}
 
-/* -- -- -- -- -- -- -- -- -- -- -- */
-
-// TODO: how exactly nodes store all the data on their machines?
-// do they use any internal databases or smth.
-
+// first iteration on Node will be a MinerNode
 struct Node {
     blockchain: Blockchain,
     world_state: WorldState,
-    //
-    // when node receives new block it will filter it's mempool form txs from that new block
-    // TODO: name is ok? maybe mempool?
-    // transaction_pool: Vec<Transaction>,
-    //
-    // storage_state
-    // network_interface
-    // consensus
+    transaction_pool: Vec<Transaction>,
 }
 
 impl Node {
-    // fn new() -> Self {
-    //     let world_state = WorldState::new();
-    //     let blockchain = Blockchain::new();
+    fn new() -> Self {
+        let blockchain = Blockchain::new();
+        let world_state = WorldState::new();
 
-    //     Node {
-    //         world_state,
-    //         blockchain,
-    //         transaction_pool: vec![],
-    //     }
-    // }
+        Node {
+            blockchain,
+            world_state,
+            transaction_pool: vec![],
+        }
+    }
 
     fn validate_tx() {
         // checking that the transaction has a valid signature, the nonce is correct,
@@ -136,45 +93,17 @@ impl Node {
 
     fn validate_block() {}
 
-    fn propagate_tx() {}
-
-    fn propagate_block() {}
-
+    // that one suppose to be really interesting
     fn execute_tx() {}
 }
 
 /* -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
 
-// ❗️ TODO: чтобы не погрязнуть в сложных темах, нужно максимально декомпозировать задачи и идти по порядку❗️
-
-// * Implementation plan *
-
-// Part 1. wallet and transaction
-// - ✅ create wallet: keypair, address
-// - ✅ create transaction. generate it's hash
-// - ✅ sign transaction
-
-// Part 2. network basics
-// - creating basic network
-// - peer discovery
-// -
-
-// Part 3. minig and blocks creation
-//
-
 fn main() {
-    let alice_wallet = Wallet::new();
-    let bob_wallet = Wallet::new();
+    let node = Node::new();
 
-    let alice_tx = alice_wallet.create_transaction(bob_wallet.address, 1000);
+    // let alice_wallet = Wallet::new();
+    // let bob_wallet = Wallet::new();
 
-    println!("{:?}", alice_tx);
-
-    // let tx_1 = Transaction {
-    //     nonce: 0,
-    //     to: String::from("0x0001"),
-    // };
-
-    // [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 48, 120, 48, 48, 48, 49]
-    // let tx_bytes = serialize(&tx_1).unwrap();
+    // let alice_tx = alice_wallet.create_transaction(bob_wallet.address, 1000);
 }

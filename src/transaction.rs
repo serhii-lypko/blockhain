@@ -9,14 +9,24 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RawTransactionData {
+    // a sequentially incrementing counter which indicates the transaction number from the account
     pub nonce: u64,
+
     pub to: String,
     pub value: u64,
 }
 
+// When it comes to transaction processing, Ethereum transactions must be processed in order per account.
+// For example, if an account has a current nonce of 10, the next valid transaction must have a nonce of 11.
+// Transactions with a nonce less than 11 would be rejected as they have already been processed,
+// and transactions with a nonce greater than 11 would be kept in the transaction pool until all preceding
+// transactions have been processed. This ensures transactions from an account are processed in the order they were sent.
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transaction {
-    pub nonce: u64, // tx nonce match sender nonce
+    // tx nonce match sender nonce
+    pub nonce: u64,
+
     pub to: String,
     pub value: u64,
     pub hash: [u8; 32],
