@@ -1,7 +1,10 @@
 use bincode::serialize;
 use libsecp256k1::{sign, Message, PublicKey, SecretKey};
 use rand::rngs::OsRng;
-use tiny_keccak::{Hasher, Sha3};
+use rmps::Serializer;
+use serde::Serialize;
+
+use crate::utils::create_hash;
 
 use crate::transaction::{RawTransactionData, Transaction};
 use crate::types::Result;
@@ -20,17 +23,6 @@ use crate::types::Result;
 // это же не весь публичный ключ целиком
 
 /* -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
-
-// TOOD: move to utils?
-fn create_hash(bytes: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha3::v256();
-    hasher.update(bytes);
-
-    let mut output: [u8; 32] = [0u8; 32];
-    hasher.finalize(&mut output);
-
-    output
-}
 
 pub struct KeyPair {
     pub private: SecretKey,
@@ -76,7 +68,15 @@ impl Wallet {
         }
     }
 
-    pub fn create_transaction(&self, to_address: String, value: u64) -> Result<Transaction> {
+    // deterministic serialization using MessagePack binary serialization format
+    fn serialize_tx(tx: &Transaction) -> Result<Vec<u8>> {
+        let mut buf = Vec::new();
+        tx.serialize(&mut Serializer::new(&mut buf))?;
+
+        Ok(buf)
+    }
+
+    pub fn create_transaction(&self, to_address: String, value: u64) -> Result<Vec<u8>> {
         // FIXME
         let nonce = 0;
 
@@ -93,7 +93,7 @@ impl Wallet {
 
         let (signature, recid) = sign(&message, &self.key_pair.private);
 
-        Ok(Transaction {
+        let tx = Transaction {
             nonce,
             to: to_address,
             value,
@@ -101,7 +101,9 @@ impl Wallet {
             v: recid.serialize(),
             r: signature.r.b32(),
             s: signature.s.b32(),
-        })
+        };
+
+        Wallet::serialize_tx(&tx)
     }
 
     fn broadcast_transaction() {}

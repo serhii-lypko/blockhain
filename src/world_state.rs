@@ -1,11 +1,15 @@
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 
 const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AccountState {
     balance: u64,
+
     // The nonce is the number of transactions sent from the account.
-    // Each time tx is send, a the nonce increases by one
+    // Each time tx is send, a the nonce increases by 1
     nonce: u64,
 }
 
@@ -22,6 +26,7 @@ impl AccountState {
 
 /* -- -- -- -- -- -- -- -- -- -- -- */
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WorldState {
     /*
         In a real-world Ethereum client, Merkle Patricia trees (a variant of Merkle trees) are used
@@ -30,10 +35,10 @@ pub struct WorldState {
         transaction or state change occurred.
 
         In first iteration, I'll use a simpler data structure for the world state. I'll store the
-        world state in a simple HashMap, where the key is the address of the account and the value
+        world state in a simple BTreeMap, where the key is the address of the account and the value
         is the AccountState struct.
     */
-    accounts: HashMap<String, AccountState>,
+    accounts: BTreeMap<String, AccountState>,
 }
 
 impl WorldState {
@@ -41,9 +46,11 @@ impl WorldState {
         let total_supply = 1000;
         let genesis_account = AccountState::new(total_supply);
 
-        let mut accounts: HashMap<String, AccountState> = HashMap::new();
+        let mut accounts = BTreeMap::new();
 
         accounts.insert(ZERO_ADDRESS.to_string(), genesis_account);
+
+        // println!("{:?}", accounts);
 
         WorldState { accounts }
     }

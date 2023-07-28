@@ -5,6 +5,11 @@ mod utils;
 mod wallet;
 mod world_state;
 
+extern crate rmp_serde as rmps;
+extern crate serde_derive;
+
+use serde::{Deserialize, Serialize};
+
 use blockchain::Blockchain;
 use transaction::Transaction;
 use wallet::Wallet;
@@ -12,7 +17,7 @@ use world_state::WorldState;
 
 // TODO: use anyhow for results ?
 
-/* = = = = = = = = = = = = = = = PLAN V2 = = = = = = = = = = = = = = = = =
+/* = = = = = = = = = = = = = = = Implementation Plan = = = = = = = = = = = = = = = = =
 
 ❗️TODO: нужно максимально декомпозировать задачи и идти по порядку от простого к сложному❗️
 
@@ -21,8 +26,10 @@ use world_state::WorldState;
     - blockchain init (with genesis block)
     - world state init (with 0-account)
     - node init
-    - create wallet (very simple one, it will know nothing about world state)
+    - create wallet
     - create transaction
+    - execute transactions and update world state
+    - consensus and PoW
 2. all the same but with merkle patricia tree for world state and transactions storage
 
 (Part 2. standalone node)
@@ -62,12 +69,16 @@ use world_state::WorldState;
 
 /* -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
 
-// In summary, all miners are full nodes because they maintain a complete copy of the blockchain
-// and validate transactions. However, not all full nodes are miners because they might not
-// participate in the process of creating new blocks.
-// struct MinerNode {}
+/*
+    Node in fact is a server and an interface for the blockchain.
 
-// first iteration on Node will be a MinerNode
+    In summary, all miners are full nodes because they maintain a complete copy of the blockchain
+    and validate transactions. However, not all full nodes are miners because they might not
+    participate in the process of creating new blocks.
+
+    TODO: separation for MinerNode, FullNode, LightNode etc.
+*/
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct Node {
     blockchain: Blockchain,
     world_state: WorldState,
@@ -76,8 +87,10 @@ struct Node {
 
 impl Node {
     fn new() -> Self {
-        let blockchain = Blockchain::new();
         let world_state = WorldState::new();
+
+        // TODO: should accept world_state_hash
+        let blockchain = Blockchain::new();
 
         Node {
             blockchain,
@@ -100,10 +113,14 @@ impl Node {
 /* -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
 
 fn main() {
-    let node = Node::new();
+    // let node = Node::new();
 
-    // let alice_wallet = Wallet::new();
-    // let bob_wallet = Wallet::new();
+    let alice_wallet = Wallet::new();
+    let bob_wallet = Wallet::new();
 
-    // let alice_tx = alice_wallet.create_transaction(bob_wallet.address, 1000);
+    let alice_tx = alice_wallet
+        .create_transaction(bob_wallet.address, 1000)
+        .unwrap();
+
+    println!("{:?}", alice_tx);
 }

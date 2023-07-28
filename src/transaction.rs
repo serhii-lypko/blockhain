@@ -30,6 +30,7 @@ pub struct Transaction {
     pub to: String,
     pub value: u64,
     pub hash: [u8; 32],
+
     pub v: u8,
     pub r: [u8; 32],
     pub s: [u8; 32],
